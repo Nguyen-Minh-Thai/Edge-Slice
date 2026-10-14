@@ -1,0 +1,8 @@
+{
+  "family": "bottleneck_resnet",
+  "n_blocks": 70,
+  "pt_file": "bottleneck_resnet_s70.pt",
+  "traced_pt_file": "bottleneck_resnet_s70_traced.pt",
+  "approx_dag_nodes": 3290,
+  "param_count": 320320
+}

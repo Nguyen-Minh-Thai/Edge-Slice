@@ -1,0 +1,8 @@
+{
+  "family": "yolo_fpn_panet",
+  "n_repeats": 2,
+  "pt_file": "yolo_fpn_panet_s2.pt",
+  "traced_pt_file": "yolo_fpn_panet_s2_traced.pt",
+  "approx_dag_nodes": 0,
+  "param_count": 1541120
+}

@@ -1,0 +1,8 @@
+{
+  "family": "bev_perception_512",
+  "n_layers": 8,
+  "pt_file": "bev_perception_s8.pt",
+  "traced_pt_file": "bev_perception_s8_traced.pt",
+  "approx_dag_nodes": 112,
+  "param_count": 1106944
+}

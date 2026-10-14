@@ -1,0 +1,8 @@
+{
+  "family": "deep_dwconv",
+  "n_blocks": 120,
+  "pt_file": "deep_dwconv_s120.pt",
+  "traced_pt_file": "deep_dwconv_s120_traced.pt",
+  "approx_dag_nodes": 3240,
+  "param_count": 2135040
+}

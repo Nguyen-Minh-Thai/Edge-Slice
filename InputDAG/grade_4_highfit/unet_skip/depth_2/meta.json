@@ -1,0 +1,8 @@
+{
+  "family": "unet_skip",
+  "depth": 2,
+  "pt_file": "unet_skip_d2.pt",
+  "traced_pt_file": "unet_skip_d2_traced.pt",
+  "approx_dag_nodes": 0,
+  "param_count": 291136
+}

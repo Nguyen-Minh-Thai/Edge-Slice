@@ -1,0 +1,8 @@
+{
+  "family": "lnorm_transformer_chain",
+  "n_layers": 3,
+  "pt_file": "lnorm_transformer_s3.pt",
+  "traced_pt_file": "lnorm_transformer_s3_traced.pt",
+  "approx_dag_nodes": 51,
+  "param_count": 198912
+}

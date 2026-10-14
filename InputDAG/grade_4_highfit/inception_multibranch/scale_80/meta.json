@@ -1,0 +1,8 @@
+{
+  "family": "inception_multibranch",
+  "n_blocks": 80,
+  "pt_file": "inception_multibranch_s80.pt",
+  "traced_pt_file": "inception_multibranch_s80_traced.pt",
+  "approx_dag_nodes": 6880,
+  "param_count": 2922240
+}

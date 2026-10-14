@@ -1,0 +1,8 @@
+{
+  "family": "unet_skip",
+  "depth": 5,
+  "pt_file": "unet_skip_d5.pt",
+  "traced_pt_file": "unet_skip_d5_traced.pt",
+  "approx_dag_nodes": 0,
+  "param_count": 21626688
+}

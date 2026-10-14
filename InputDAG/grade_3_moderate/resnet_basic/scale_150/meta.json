@@ -1,0 +1,8 @@
+{
+  "family": "resnet_basic",
+  "n_blocks": 150,
+  "pt_file": "resnet_basic_s150.pt",
+  "traced_pt_file": "resnet_basic_s150_traced.pt",
+  "approx_dag_nodes": 8400,
+  "param_count": 11116800
+}

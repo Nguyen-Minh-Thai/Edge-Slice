@@ -1,0 +1,8 @@
+{
+  "family": "two_branch_add",
+  "n_blocks": 8,
+  "pt_file": "two_branch_add_s8.pt",
+  "traced_pt_file": "two_branch_add_s8_traced.pt",
+  "approx_dag_nodes": 240,
+  "param_count": 1115136
+}

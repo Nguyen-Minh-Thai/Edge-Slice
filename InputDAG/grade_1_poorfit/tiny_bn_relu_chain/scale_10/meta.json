@@ -1,0 +1,8 @@
+{
+  "family": "tiny_bn_relu_chain",
+  "n_layers": 10,
+  "pt_file": "tiny_bn_relu_s10.pt",
+  "traced_pt_file": "tiny_bn_relu_s10_traced.pt",
+  "approx_dag_nodes": 250,
+  "param_count": 3040
+}

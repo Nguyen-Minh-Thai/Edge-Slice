@@ -1,0 +1,8 @@
+{
+  "family": "sub_sram_tiny_cnn",
+  "n_layers": 80,
+  "pt_file": "sub_sram_tiny_cnn_s80.pt",
+  "traced_pt_file": "sub_sram_tiny_cnn_s80_traced.pt",
+  "approx_dag_nodes": 1120,
+  "param_count": 46360
+}

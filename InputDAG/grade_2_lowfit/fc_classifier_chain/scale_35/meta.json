@@ -1,0 +1,8 @@
+{
+  "family": "fc_classifier_chain",
+  "n_layers": 35,
+  "pt_file": "fc_classifier_s35.pt",
+  "traced_pt_file": "fc_classifier_s35_traced.pt",
+  "approx_dag_nodes": 213,
+  "param_count": 9192960
+}

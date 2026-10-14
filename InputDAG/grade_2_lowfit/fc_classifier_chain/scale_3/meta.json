@@ -1,0 +1,8 @@
+{
+  "family": "fc_classifier_chain",
+  "n_layers": 3,
+  "pt_file": "fc_classifier_s3.pt",
+  "traced_pt_file": "fc_classifier_s3_traced.pt",
+  "approx_dag_nodes": 21,
+  "param_count": 787968
+}

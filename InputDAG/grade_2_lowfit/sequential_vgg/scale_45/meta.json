@@ -1,0 +1,8 @@
+{
+  "family": "sequential_vgg",
+  "n_layers": 45,
+  "pt_file": "sequential_vgg_s45.pt",
+  "traced_pt_file": "sequential_vgg_s45_traced.pt",
+  "approx_dag_nodes": 455,
+  "param_count": 1626624
+}

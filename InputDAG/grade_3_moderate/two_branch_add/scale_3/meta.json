@@ -1,0 +1,8 @@
+{
+  "family": "two_branch_add",
+  "n_blocks": 3,
+  "pt_file": "two_branch_add_s3.pt",
+  "traced_pt_file": "two_branch_add_s3_traced.pt",
+  "approx_dag_nodes": 90,
+  "param_count": 418176
+}

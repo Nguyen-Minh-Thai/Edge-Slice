@@ -1,0 +1,8 @@
+{
+  "family": "scalar_elementwise_mlp",
+  "n_layers": 300,
+  "pt_file": "scalar_mlp_s300.pt",
+  "traced_pt_file": "scalar_mlp_s300_traced.pt",
+  "approx_dag_nodes": 2400,
+  "param_count": 81600
+}

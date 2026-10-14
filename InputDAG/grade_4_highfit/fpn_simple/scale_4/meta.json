@@ -1,0 +1,8 @@
+{
+  "family": "fpn_simple",
+  "n_levels": 4,
+  "pt_file": "fpn_simple_s4.pt",
+  "traced_pt_file": "fpn_simple_s4_traced.pt",
+  "approx_dag_nodes": 0,
+  "param_count": 2623488
+}
