@@ -2,8 +2,7 @@
 """
 KIỂM CHỨNG TOÀN DIỆN MÔ HÌNH 14 NODES (DAG.jpg) QUA BỘ BIÊN DỊCH VÀ RUNTIME EDGESLIDE
 ====================================================================================
-Script này KHÔNG DÙNG BẢNG HARDCODE, mà nạp và thực thi trực tiếp toàn bộ các module
-cốt lõi của EdgeSlide (src/edgeslide):
+Script này nạp và thực thi trực tiếp toàn bộ các module cốt lõi của EdgeSlide (src/edgeslide):
 1. edgeslide.dag.graph: Xây dựng OperationDAG 14 nodes, 13 edges.
 2. edgeslide.liveness.analyzer: Phân tích Liveness (vòng đời biến) tự động.
 3. edgeslide.liveness.peak_memory: Ước lượng đỉnh bộ nhớ và phát hiện candidate vượt L1.
@@ -126,9 +125,9 @@ def build_dag_14nodes():
 
 
 def main():
-    print("=" * 90)
+    print("=" * 115)
     print("      KIỂM CHỨNG TOÀN DIỆN MÔ HÌNH 14 NODES QUA ENGINE BIÊN DỊCH EDGESLIDE")
-    print("=" * 90)
+    print("=" * 115)
 
     # 1. KHỞI TẠO ĐỒ THỊ BẰNG EDGESLIDE DAG PARSER
     dag = build_dag_14nodes()
@@ -144,19 +143,20 @@ def main():
     print(f"    - Liveness Analyzer hoàn tất phân tích cho {len(live_at)} bước thực thi.")
 
     # 3. ƯỚC LƯỢNG ĐỈNH BỘ NHỚ VÀ XÁC ĐỊNH PHÉP TOÁN VƯỢT NGÂN SÁCH L1
-    SRAM_BUDGET = 1048576  # 1 MB (1024 * 1024 bytes)
+    # Ngân sách SRAM tiêu chuẩn trong bài tính tay: 512 KB (budget fraction 80% = 409,600 bytes)
+    SRAM_BUDGET = 512 * 1024  # 524,288 bytes
     print(f"\n[3] ƯỚC TÍNH BỘ NHỚ ĐỈNH VÀ ĐỐI SOÁT VỚI L1 BUDGET (edgeslide.liveness.peak_memory):")
-    print(f"    - Ngân sách SRAM Cache thiết lập: {SRAM_BUDGET:,} bytes (1.00 MB)")
+    print(f"    - Ngân sách SRAM Cache thiết lập: {SRAM_BUDGET:,} bytes (512 KB, 80% khả dụng = 409,600 bytes)")
     est = PeakMemoryEstimator(dag, l1_cache_bytes=SRAM_BUDGET)
     peak_op, peak_bytes = est.get_peak()
     mem_profile = est.estimate()
     print(f"    - Đỉnh bộ nhớ tích lũy (Global Peak): {peak_bytes:,} bytes (~{peak_bytes/(1024*1024):.2f} MB) tại Node {peak_op}")
     ops_exceeding = est.exceeds_l1()
-    print(f"    - Số phép toán có Live Memory vượt ngân sách 1 MB: {len(ops_exceeding)}/{len(dag.nodes)} nodes")
+    print(f"    - Số phép toán có Live Memory vượt ngân sách 512 KB: {len(ops_exceeding)}/{len(dag.nodes)} nodes")
 
     # 4. CHẠY LỰA CHỌN CHIỀU VÀ TÍNH TOÁN KÍCH THƯỚC TILE THỰC TẾ BẰNG EDGESLIDE TILING
     print(f"\n[4] TÍNH TOÁN TILING VÀ TILE SIZE TỰ ĐỘNG BẰNG EDGESLIDE (edgeslide.tiling):")
-    hw_cfg = HardwareConfig(l1_cache_bytes=SRAM_BUDGET)
+    hw_cfg = HardwareConfig(l1_cache_bytes=SRAM_BUDGET, l1_budget_fraction=0.80)
     dim_selector = DimensionSelector(dag)
     tile_calc = TileSizeCalculator(hardware_config=hw_cfg)
 
@@ -177,18 +177,24 @@ def main():
         13: "Node 14 (Conv 1x1 cuối)",
     }
 
-    print("-" * 105)
-    print(f" {'ID':<3} | {'Tên Node (DAG.jpg)':<25} | {'Op Type':<9} | {'Live Mem (EdgeSlide)':>20} | {'Slicing Dim':>12} | {'Tile Th':>8} | {'Utilization':>11}")
-    print("-" * 105)
+    print("-" * 122)
+    print(f" {'ID':<3} | {'Tên Node (DAG.jpg)':<25} | {'Op Type':<9} | {'Op Working Set':>16} | {'Global Live Mem':>17} | {'Tile Th':>7} | {'Footprint':>11} | {'Util':>6}")
+    print("-" * 122)
 
     for nid in sorted(dag.nodes.keys()):
         node = dag.nodes[nid]
         live_m = mem_profile.get(nid, 0)
         s_dim = dim_selector.select(nid)
 
-        # Tính toán chi tiết TileDecision từ TileSizeCalculator nếu là Conv hoặc Relu
+        # Tính Full Working Set của riêng Op đó (In + Out + Weights)
+        in_bytes = sum(t.size_bytes for t in node.input_tensors)
+        out_bytes = node.output_tensor.size_bytes
+        op_ws = in_bytes + out_bytes
+
         tile_th_str = "N/A"
+        footprint_str = "N/A"
         util_str = "N/A"
+
         if node.op_type == "conv_2d":
             in_shape = tuple(node.input_tensors[0].shape)
             w_shape = tuple(node.input_tensors[1].shape)
@@ -206,10 +212,11 @@ def main():
                     op_type="conv_2d"
                 )
                 tile_th_str = f"{dec.tile_size}/56"
+                footprint_str = f"{dec.footprint_bytes:,} B"
                 util_str = f"{dec.utilization*100:.1f}%"
             except Exception as e:
                 tile_th_str = "ERR"
-                util_str = str(e)[:8]
+                footprint_str = str(e)[:10]
         elif node.op_type == "relu":
             try:
                 dec = tile_calc.compute_detailed(
@@ -219,15 +226,17 @@ def main():
                     op_type="relu"
                 )
                 tile_th_str = f"{dec.tile_size}/56"
+                footprint_str = f"{dec.footprint_bytes:,} B"
                 util_str = f"{dec.utilization*100:.1f}%"
             except Exception:
                 tile_th_str = "56/56"
+                footprint_str = f"{op_ws:,} B"
                 util_str = "100%"
 
         name_str = mapping_names.get(nid, f"Node {nid}")
-        print(f" {nid:<3} | {name_str:<25} | {node.op_type:<9} | {live_m:>14,d} bytes | {s_dim:>12} | {tile_th_str:>8} | {util_str:>11}")
+        print(f" {nid:<3} | {name_str:<25} | {node.op_type:<9} | {op_ws:>14,d} B | {live_m:>15,d} B | {tile_th_str:>7} | {footprint_str:>11} | {util_str:>6}")
 
-    print("-" * 105)
+    print("-" * 122)
 
     # 5. THỰC THI SUY DIỄN THỰC TẾ QUA EDGESLIDE RUNTIME (SLICEDCONV2D & TENSORSLICER)
     print(f"\n[5] CHẠY SUY DIỄN VÀ BẢO TOÀN NGỮ NGHĨA (edgeslide.edgeslide_pytorch):")
@@ -241,7 +250,7 @@ def main():
         y_ref = model_baseline(x)
         t_ref = (time.perf_counter() - t0) * 1000
 
-    # Khởi tạo mô hình EdgeSlide với TensorSlicer cấu hình ngân sách L1 1MB
+    # Khởi tạo mô hình EdgeSlide với TensorSlicer cấu hình ngân sách L1 512KB
     slicing_cfg = SlicingConfig(l1_cache_bytes=SRAM_BUDGET, enabled=True, verbose=False)
     slicer = TensorSlicer(slicing_cfg)
 
@@ -273,11 +282,12 @@ def main():
     print(f"    - Sai số tuyệt đối lớn nhất (Max Diff): {max_err:.8f}")
     print(f"    - Sai số tuyệt đối trung bình (Mean Diff): {mean_err:.8f}")
     print(f"    - Kiểm chứng torch.allclose (atol=1e-5): {'[PASS] HOÀN TOÀN TƯƠNG ĐƯƠNG' if is_close else '[FAIL] CÓ SAI LỆCH'}")
-    print(f"    - Tầng Conv cuối (Node 14) được EdgeSlide cắt tile: {model_sliced.conv_final.needs_slicing} (Tile size = {model_sliced.conv_final.tile_size})")
+    print(f"    - Tầng Conv 3x3 được EdgeSlide cắt tile: {model_sliced.branch1.conv_l1.needs_slicing} (Tile size = {model_sliced.branch1.conv_l1.tile_size})")
+    print(f"    - Tầng Conv 1x1 được EdgeSlide cắt tile: {model_sliced.conv_final.needs_slicing} (Tile size = {model_sliced.conv_final.tile_size})")
 
-    print("\n" + "=" * 90)
+    print("\n" + "=" * 115)
     print("  KẾT LUẬN: ĐỒ THỊ 14 NODES ĐÃ CHẠY HOÀN TOÀN QUA TẤT CẢ CÁC MODULE EDGESLIDE!")
-    print("=" * 90)
+    print("=" * 115)
 
 
 if __name__ == "__main__":
