@@ -1,1 +1,0 @@
-"""edgeslide.tiling subpackage."""
