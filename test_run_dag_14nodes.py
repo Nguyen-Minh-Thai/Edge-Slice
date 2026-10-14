@@ -15,6 +15,7 @@ Script này nạp và thực thi trực tiếp toàn bộ các module cốt lõi
 import sys
 import io
 import time
+import shutil
 from pathlib import Path
 
 if sys.platform == "win32":
@@ -41,6 +42,21 @@ from edgeslide.edgeslide_pytorch import (
     TensorSlicer,
     SlicedConv2d,
 )
+
+
+class DualLogger:
+    """Ghi đồng thời log ra màn hình console và lưu vào file txt."""
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, message):
+        for s in self.streams:
+            s.write(message)
+            s.flush()
+
+    def flush(self):
+        for s in self.streams:
+            s.flush()
 
 
 def build_dag_14nodes():
@@ -291,4 +307,16 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    log_file = ROOT_DIR / "LOG_EXECUTION_DAG_14NODES.txt"
+    with open(log_file, "w", encoding="utf-8") as f:
+        orig_stdout = sys.stdout
+        sys.stdout = DualLogger(orig_stdout, f)
+        try:
+            main()
+        finally:
+            sys.stdout = orig_stdout
+
+    # Đồng bộ sang thư mục Manual Compute EdgeSlice
+    manual_dir = ROOT_DIR / "verify code edge slice" / "Manual Compute EdgeSlice"
+    if manual_dir.exists():
+        shutil.copy2(log_file, manual_dir / "LOG_EXECUTION_DAG_14NODES.txt")

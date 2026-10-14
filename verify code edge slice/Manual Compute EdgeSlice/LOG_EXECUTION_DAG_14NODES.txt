@@ -1,0 +1,49 @@
+===================================================================================================================
+      KIỂM CHỨNG TOÀN DIỆN MÔ HÌNH 14 NODES QUA ENGINE BIÊN DỊCH EDGESLIDE
+===================================================================================================================
+
+[1] ĐỒ THỊ DAG ĐƯỢC XÂY DỰNG BẰNG edgeslide.dag.graph:
+    - Tổng số Node: 14
+    - Tổng số Edge: 13
+    - Thứ tự Topological Sort: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+
+[2] PHÂN TÍCH VÒNG ĐỜI BIẾN (edgeslide.liveness.analyzer):
+    - Liveness Analyzer hoàn tất phân tích cho 14 bước thực thi.
+
+[3] ƯỚC TÍNH BỘ NHỚ ĐỈNH VÀ ĐỐI SOÁT VỚI L1 BUDGET (edgeslide.liveness.peak_memory):
+    - Ngân sách SRAM Cache thiết lập: 524,288 bytes (512 KB, 80% khả dụng = 409,600 bytes)
+    - Đỉnh bộ nhớ tích lũy (Global Peak): 4,866,048 bytes (~4.64 MB) tại Node 12
+    - Số phép toán có Live Memory vượt ngân sách 512 KB: 14/14 nodes
+
+[4] TÍNH TOÁN TILING VÀ TILE SIZE TỰ ĐỘNG BẰNG EDGESLIDE (edgeslide.tiling):
+--------------------------------------------------------------------------------------------------------------------------
+ ID  | Tên Node (DAG.jpg)        | Op Type   |   Op Working Set |   Global Live Mem | Tile Th |   Footprint |   Util
+--------------------------------------------------------------------------------------------------------------------------
+ 0   | Node 1 (Conv 3x3 Nhánh 1) | conv_2d   |      1,753,088 B |       2,539,520 B |    8/56 |   405,504 B |  96.7%
+ 1   | Node 4 (ReLU Nhánh 1)     | relu      |      1,605,632 B |       3,194,880 B |   14/56 |   401,408 B |  95.7%
+ 2   | Node 7 (Conv 3x3 Nhánh 1) | conv_2d   |      1,753,088 B |       3,194,880 B |    8/56 |   405,504 B |  96.7%
+ 3   | Node 10 (ReLU Nhánh 1)    | relu      |      1,605,632 B |       3,047,424 B |   14/56 |   401,408 B |  95.7%
+ 4   | Node 2 (Conv 3x3 Nhánh 2) | conv_2d   |      1,753,088 B |       3,047,424 B |    8/56 |   405,504 B |  96.7%
+ 5   | Node 5 (ReLU Nhánh 2)     | relu      |      1,605,632 B |       3,702,784 B |   14/56 |   401,408 B |  95.7%
+ 6   | Node 8 (Conv 3x3 Nhánh 2) | conv_2d   |      1,753,088 B |       3,702,784 B |    8/56 |   405,504 B |  96.7%
+ 7   | Node 11 (ReLU Nhánh 2)    | relu      |      1,605,632 B |       3,555,328 B |   14/56 |   401,408 B |  95.7%
+ 8   | Node 3 (Conv 3x3 Nhánh 3) | conv_2d   |      1,753,088 B |       3,555,328 B |    8/56 |   405,504 B |  96.7%
+ 9   | Node 6 (ReLU Nhánh 3)     | relu      |      1,605,632 B |       3,407,872 B |   14/56 |   401,408 B |  95.7%
+ 10  | Node 9 (Conv 3x3 Nhánh 3) | conv_2d   |      1,753,088 B |       3,407,872 B |    8/56 |   405,504 B |  96.7%
+ 11  | Node 12 (ReLU Nhánh 3)    | relu      |      1,605,632 B |       3,260,416 B |   14/56 |   401,408 B |  95.7%
+ 12  | Node 13 (tensor.concat)   | concat    |      4,816,896 B |       4,866,048 B |     N/A |         N/A |    N/A
+ 13  | Node 14 (Conv 1x1 cuối)   | conv_2d   |      3,260,416 B |       3,260,416 B |    6/56 |   393,216 B |  93.8%
+--------------------------------------------------------------------------------------------------------------------------
+
+[5] CHẠY SUY DIỄN VÀ BẢO TOÀN NGỮ NGHĨA (edgeslide.edgeslide_pytorch):
+    - Thời gian suy diễn PyTorch chuẩn  : 7.98 ms
+    - Thời gian suy diễn EdgeSlide Sliced: 14.15 ms
+    - Sai số tuyệt đối lớn nhất (Max Diff): 0.00000000
+    - Sai số tuyệt đối trung bình (Mean Diff): 0.00000000
+    - Kiểm chứng torch.allclose (atol=1e-5): [PASS] HOÀN TOÀN TƯƠNG ĐƯƠNG
+    - Tầng Conv 3x3 được EdgeSlide cắt tile: True (Tile size = 8)
+    - Tầng Conv 1x1 được EdgeSlide cắt tile: True (Tile size = 6)
+
+===================================================================================================================
+  KẾT LUẬN: ĐỒ THỊ 14 NODES ĐÃ CHẠY HOÀN TOÀN QUA TẤT CẢ CÁC MODULE EDGESLIDE!
+===================================================================================================================
