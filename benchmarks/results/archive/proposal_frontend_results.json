@@ -1,0 +1,96 @@
+{
+  "metadata": {
+    "pipeline": "proposal_frontend",
+    "timestamp": "2026-05-26 06:48:55"
+  },
+  "result": {
+    "model_name": "Simple3DBackbone",
+    "l1_cache_kb": 512,
+    "device": "cpu",
+    "peak_memory_mb": 536.870912,
+    "slicing_candidates": 6,
+    "rewrite_plan": [
+      {
+        "op_id": 0,
+        "op_type": "conv_2d",
+        "slice_dimension": "batch",
+        "tile_size": 1,
+        "original_shape": [
+          1,
+          64,
+          512,
+          512
+        ]
+      },
+      {
+        "op_id": 1,
+        "op_type": "conv_2d",
+        "slice_dimension": "batch",
+        "tile_size": 1,
+        "original_shape": [
+          1,
+          128,
+          256,
+          256
+        ]
+      },
+      {
+        "op_id": 2,
+        "op_type": "conv_2d",
+        "slice_dimension": "batch",
+        "tile_size": 1,
+        "original_shape": [
+          1,
+          128,
+          512,
+          512
+        ]
+      },
+      {
+        "op_id": 3,
+        "op_type": "conv_2d",
+        "slice_dimension": "batch",
+        "tile_size": 1,
+        "original_shape": [
+          1,
+          256,
+          256,
+          256
+        ]
+      },
+      {
+        "op_id": 4,
+        "op_type": "conv_2d",
+        "slice_dimension": "batch",
+        "tile_size": 1,
+        "original_shape": [
+          1,
+          256,
+          512,
+          512
+        ]
+      },
+      {
+        "op_id": 5,
+        "op_type": "conv_2d",
+        "slice_dimension": "batch",
+        "tile_size": 1,
+        "original_shape": [
+          1,
+          512,
+          256,
+          256
+        ]
+      }
+    ],
+    "generated_transform_ir": "module attributes {transform.with_named_sequence} {\n  transform.named_sequence @__transform_main(%arg0: !transform.any_op) {\n\n    // Op 0: conv_2d shape=(1, 64, 512, 512)\n    // Slicing dimension: batch, tile_size: 1\n\n    %result_0 = scf.forall (%i) in (0 to 1 step 1) -> (tensor<1x64x512x512xf32>) {\n      %slice_input = tensor.extract_slice %input[%i * 1, 0, 0, 0] [min(1, 1 - %i * 1), 64, 512, 512] [1, 1, 1, 1] : tensor<1x64x512x512xf32> to tensor<...xf32>\n      %slice_output = tensor.extract_slice %output[%i * 1, 0, 0, 0] [min(1, 1 - %i * 1), 64, 512, 512] [1, 1, 1, 1] : tensor<1x64x512x512xf32> to tensor<...xf32>\n      // Perform linalg.conv_2d_nchw_fchw on sliced tensors\n      %tile_result = linalg.conv_2d_nchw_fchw ins(%slice_input, %filter : ...) outs(%slice_output : ...) -> tensor<1x64x512x512xf32>\n      scf.forall.in_parallel {\n        tensor.parallel_insert_slice %tile_result into %result_0[%i] [0] [1] [1] : tensor<1x64x512x512xf32> into tensor<1x64x512x512xf32>\n      }\n    }\n    %final_0 = tensor.concat %result_0[0] along dimension 0 : (tensor<...xf32>) -> tensor<1x64x512x512xf32>\n\n    // Op 1: conv_2d shape=(1, 128, 256, 256)\n    // Slicing dimension: batch, tile_size: 1\n\n    %result_1 = scf.forall (%i) in (0 to 1 step 1) -> (tensor<1x128x256x256xf32>) {\n      %slice_input = tensor.extract_slice %input[%i * 1, 0, 0, 0] [min(1, 1 - %i * 1), 128, 256, 256] [1, 1, 1, 1] : tensor<1x128x256x256xf32> to tensor<...xf32>\n      %slice_output = tensor.extract_slice %output[%i * 1, 0, 0, 0] [min(1, 1 - %i * 1), 128, 256, 256] [1, 1, 1, 1] : tensor<1x128x256x256xf32> to tensor<...xf32>\n      // Perform linalg.conv_2d_nchw_fchw on sliced tensors\n      %tile_result = linalg.conv_2d_nchw_fchw ins(%slice_input, %filter : ...) outs(%slice_output : ...) -> tensor<1x128x256x256xf32>\n      scf.forall.in_parallel {\n        tensor.parallel_insert_slice %tile_result into %result_1[%i] [0] [1] [1] : tensor<1x128x256x256xf32> into tensor<1x128x256x256xf32>\n      }\n    }\n    %final...",
+    "baseline_peak_memory_mb": 18.749184,
+    "edgeslide_peak_memory_mb": 18.749184,
+    "memory_reduction_percent": 0.0,
+    "baseline_time_ms": 179.65687499963678,
+    "edgeslide_time_ms": 154.8330840014387,
+    "num_layers_guided_by_analysis": 0,
+    "dataset_samples": 1,
+    "notes": "Analysis follows original proposal (DAG + Liveness + Transform Dialect). Execution uses reference runtime guided by analysis output."
+  }
+}

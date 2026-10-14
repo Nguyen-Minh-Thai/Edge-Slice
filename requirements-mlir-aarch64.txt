@@ -1,0 +1,11 @@
+# Reproducible torch-mlir test environment for Linux aarch64.
+# The official wheels are CPython 3.11 builds and require NumPy 1.x.
+numpy==1.26.4
+pytest>=9.0
+scipy>=1.14,<1.15
+# 0.43 and earlier bundle LLVM 14, which cannot parse the opaque pointers
+# mlir-translate 19 emits. 0.44 is the working floor; 0.49.0 is verified.
+llvmlite>=0.48
+pillow>=10.0
+torch @ https://github.com/llvm/torch-mlir/releases/download/snapshot-20240127.1096/torch-2.3.0.dev20240122-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+torch-mlir @ https://github.com/llvm/torch-mlir/releases/download/snapshot-20240127.1096/torch_mlir-20240127.1096-cp311-cp311-linux_aarch64.whl

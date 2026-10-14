@@ -1,0 +1,68 @@
+{
+  "metadata": {
+    "benchmark_type": "nuscenes_style",
+    "description": "EdgeSlide benchmark with nuScenes-style 6-camera dataset",
+    "dataset": {
+      "name": "nuScenes-style 6-camera",
+      "num_cameras": 6,
+      "image_size": 512,
+      "num_samples": 100,
+      "camera_names": [
+        "CAM_FRONT",
+        "CAM_FRONT_LEFT",
+        "CAM_FRONT_RIGHT",
+        "CAM_BACK",
+        "CAM_BACK_LEFT",
+        "CAM_BACK_RIGHT"
+      ]
+    },
+    "l1_cache_kb": 512,
+    "device": "cpu"
+  },
+  "baseline": {
+    "name": "Baseline 1: No Slicing",
+    "peak_memory_mb": 226.71659088134766,
+    "model_memory_mb": 10.716590881347656,
+    "activation_memory_mb": 216.0,
+    "avg_time_ms": 97.19222787185572,
+    "median_time_ms": 96.37706250941847,
+    "std_time_ms": 2.818811298947017,
+    "memory_traffic_gb": 0.09835604578256607
+  },
+  "edgeslide": {
+    "name": "EdgeSlide",
+    "peak_memory_mb": 226.71659088134766,
+    "model_memory_mb": 10.716590881347656,
+    "activation_memory_mb": 216.0,
+    "avg_time_ms": 70.46513919194695,
+    "median_time_ms": 69.81791650468949,
+    "std_time_ms": 2.1806135961291275,
+    "memory_traffic_gb": 0.09835604578256607,
+    "num_wrapped": 7,
+    "wrapped_layers": [
+      "camera_fusion",
+      "backbone.voxel_encoder.0",
+      "backbone.conv1",
+      "backbone.conv2",
+      "backbone.conv3",
+      "backbone.conv4",
+      "detection_head.0"
+    ],
+    "compile_time_s": 0.00011491775512695312
+  },
+  "metrics": {
+    "peak_memory_reduction_pct": 0.0,
+    "runtime_speedup_pct": 27.499203655612703,
+    "memory_traffic_gb": 0.09835604578256607,
+    "compile_time_overhead_s": 0.00011491775512695312,
+    "accuracy_drop_pct": 163.20236206054688,
+    "device": "cpu",
+    "model_name": "small",
+    "num_params": 2809290
+  },
+  "sota_comparison": {
+    "sconv_speedup": "9-42%",
+    "tso_speedup": "21.7%",
+    "edgeslide_speedup": "+27.5%"
+  }
+}

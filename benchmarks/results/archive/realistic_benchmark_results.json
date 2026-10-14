@@ -1,0 +1,40 @@
+{
+  "metadata": {
+    "benchmark_type": "realistic",
+    "description": "EdgeSlide benchmark with honest scope - only standard PyTorch layers",
+    "scope": "Runtime activation tiling for nn.Conv2d layers",
+    "limitations": [
+      "Does not work with custom mmdet3d modules",
+      "Memory measurement approximate on CPU",
+      "Only tested on standard backbones"
+    ],
+    "device": "cpu",
+    "l1_cache_kb": 512
+  },
+  "results": [
+    {
+      "model_name": "Simple3DBackbone",
+      "model_type": "Standard Conv Backbone",
+      "num_parameters": 4687296,
+      "num_layers_wrapped": 7,
+      "wrapped_layer_names": [
+        "conv0",
+        "conv1",
+        "conv2",
+        "conv3",
+        "conv4",
+        "conv5",
+        "conv6"
+      ],
+      "baseline_inference_time_ms": 178.1407063928782,
+      "edgeslide_inference_time_ms": 133.5392499982845,
+      "time_change_percent": -25.037206429522048,
+      "baseline_peak_memory_mb": 609.880615234375,
+      "edgeslide_peak_memory_mb": 609.880615234375,
+      "memory_change_percent": 0.0,
+      "output_correct": false,
+      "device": "cpu",
+      "notes": "Wrapped 7 standard nn.Conv2d layers"
+    }
+  ]
+}

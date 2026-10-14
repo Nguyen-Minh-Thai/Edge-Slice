@@ -1,0 +1,76 @@
+\documentclass[12pt,a4paper]{article}
+
+% ============================================================================
+
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage[vietnamese]{babel}
+\usepackage[a4paper,margin=1.8cm]{geometry}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    pdftitle={EdgeSlice -- Dan y}
+}
+
+\setlist[itemize]{leftmargin=*,noitemsep,topsep=4pt}
+\setlist[enumerate]{leftmargin=*,noitemsep,topsep=4pt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\renewcommand{\arraystretch}{1.30}
+
+\newcommand{\src}[1]{{\small\texttt{#1}}}
+\newcommand{\measured}{\textcolor{blue!60!black}{\small[đã đo]}}
+\newcommand{\todo}[1]{\textcolor{red!70!black}{\textbf{[cần đo: #1]}}}
+
+\title{\textbf{Research Report Outline (V9)}\\
+\large SRAM-Resident Operator Scheduling for Fast Edge Inference:\\
+Capacity-Constrained Tiling, Fusion, and Data Movement in MLIR}
+\date{Version: V9 --- revised objective: latency under a hard SRAM constraint}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\textbf{Abstract:} This report reframes EdgeSlice around the deployment
+objective that directly affects performance: every tiled or fused compute
+region must fit a declared on-chip SRAM, and legal schedules are ranked by
+off-chip traffic and measured latency. Whole-model peak memory remains a
+diagnostic rather than the optimization target. The method combines complete
+working-set accounting, capacity-constrained 1D/2D tiling, budgeted fusion,
+explicit SRAM promotion, double buffering, and target-specific inner-kernel
+lowering. Evaluation reports SRAM capacity violations, DRAM--SRAM bytes,
+utilization, stalls, latency, energy, and numerical equivalence.
+\end{abstract}
+
+\section*{Revised method}
+The optimization objective is minimum measured inference latency subject to a
+hard on-chip SRAM-capacity constraint. Candidate operations are selected by
+their complete local working set---inputs, weights, other operands, halo,
+accumulator, temporaries, and output tile---rather than by the whole graph's
+peak liveness point. Legal one- and two-dimensional tiles and fusion boundaries
+must fit the usable SRAM budget. The compiler then ranks them by predicted
+DRAM--SRAM traffic, vector utilization, and parallelism, and measures a short
+list on the target.
+
+Tiling alone does not place data in SRAM. The complete backend must allocate a
+target memory space, schedule copy-in and copy-out, optionally overlap transfer
+and compute with ping-pong buffers, and lower the inner operation to a
+vectorized or target-specific kernel. Until that placement is emitted and
+verified, a plan is described as \emph{SRAM-feasible}, not SRAM-resident.
+
+\end{document}

@@ -1,0 +1,2 @@
+# Keep the ir/ directory for example MLIR artifacts.
+# Most generated .mlir and .dot files are ignored.

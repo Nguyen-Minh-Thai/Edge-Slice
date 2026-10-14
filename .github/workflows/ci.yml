@@ -1,0 +1,282 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: tests (python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      # The MLIR command-line tools are not Python packages. Installed here so
+      # the `mlir`-marked tests actually run rather than silently skipping —
+      # a green run with every MLIR test skipped proves nothing.
+      - name: Install LLVM/MLIR 19 tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends llvm-19-tools mlir-19-tools
+          echo "/usr/lib/llvm-19/bin" >> "$GITHUB_PATH"
+
+      - name: Verify toolchain
+        run: |
+          mlir-opt --version
+          mlir-translate --version
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # CPU-only wheels: the GPU builds are ~2 GB and nothing here uses CUDA.
+          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          pip install -e ".[dev]"
+
+      - name: Byte-compile sources
+        run: python -m compileall src
+
+      - name: Run tests
+        # Coverage floor: the no-toolchain baseline measures 58% on the
+        # edgeslide package; 55 guards against regressions without being
+        # brittle to environment-dependent skips.
+        #
+        # benchmarks.metrics is measured alongside it because that module
+        # computes the published peak-memory numbers — a regression there
+        # corrupts results without failing anything else. The rest of
+        # benchmarks/ is CLI entry points; including them would drag the
+        # combined figure under the floor without gating anything real.
+        run: >
+          pytest -m "not hardware" -v
+          --cov=edgeslide --cov=benchmarks.metrics
+          --cov-report=term --cov-fail-under=55
+
+      # Second gate over the same coverage data (no re-run): the global floor
+      # is diluted by ~3600 statements of edgeslide, so metrics.py could rot
+      # to zero without moving it.
+      - name: Coverage floor for the results estimator
+        run: python -m coverage report --include="*/benchmarks/metrics.py" --fail-under=75
+
+      # Runs here rather than in the lint job so torch/numpy are installed and
+      # mypy sees real types instead of Any for every tensor.
+      - name: Type check (mypy)
+        run: mypy
+
+  torch-mlir:
+    # The `test` job above installs current CPU torch but *not* torch-mlir, so
+    # every torch_mlir-gated test skips there: DAG parsing (DAGParser), the
+    # end-to-end pipeline, numerical equivalence, and the JIT invoke path. Those
+    # are the tests that cover the compiler's actual subject matter, and a green
+    # CI that skipped all of them is the failure mode this job exists to close.
+    #
+    # It is a separate job rather than a matrix entry because the dependency set
+    # is not a variation on the fast job's — it is a mutually exclusive pin
+    # (numpy 1.x, a torch dev snapshot) that cannot coexist with current torch
+    # in one resolve. See docs/DEPENDENCIES.md.
+    # Version is literal, not ${{ env.* }}: the `env` context is not available
+    # in a job's `name`, it would silently render as empty.
+    name: full stack (torch-mlir 20240127.1096)
+    runs-on: ubuntu-latest
+
+    env:
+      # Pinned to exact wheel URLs, not version specifiers: these are snapshot
+      # builds published as GitHub release assets, never uploaded to PyPI, and
+      # the torch dev build they are ABI-locked to is not on PyPI either.
+      # x86_64 wheels — the development hosts use the aarch64 equivalents in the
+      # same release (see requirements-mlir-aarch64.txt).
+      TORCH_WHEEL: https://github.com/llvm/torch-mlir/releases/download/snapshot-20240127.1096/torch-2.3.0.dev20240122%2Bcpu-cp311-cp311-linux_x86_64.whl
+      TORCH_MLIR_WHEEL: https://github.com/llvm/torch-mlir/releases/download/snapshot-20240127.1096/torch_mlir-20240127.1096-cp311-cp311-linux_x86_64.whl
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 3.11 exactly. The torch-mlir wheels are cp311-only builds; there is no
+      # cp312 asset in this snapshot, so widening the matrix would only add a
+      # job that cannot install.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Not setup-python's `cache: pip`, which keys on requirements/lock files —
+      # this job's pins live in `env:` above, so the key is the workflow file
+      # itself. Worth caching: the two snapshot wheels are ~190 MB and ~120 MB
+      # and pip's HTTP cache stores direct-URL downloads by URL.
+      - name: Cache pip downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-torch-mlir-${{ runner.os }}-py311-${{ hashFiles('.github/workflows/ci.yml', 'pyproject.toml') }}
+          restore-keys: |
+            pip-torch-mlir-${{ runner.os }}-py311-
+
+      # clang and valgrind are here, not just the MLIR tools: the JIT path
+      # compiles src/edgeslide/mlir_transform/runner_utils.c with `cc` whenever
+      # libmlir_runner_utils.so is absent (Ubuntu's mlir-19-tools does not ship
+      # it), and benchmarks/hardware_profiler.py shells out to valgrind.
+      - name: Install LLVM/MLIR 19 tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            llvm-19 llvm-19-tools mlir-19-tools clang-19 valgrind
+          echo "/usr/lib/llvm-19/bin" >> "$GITHUB_PATH"
+
+      - name: Verify toolchain
+        run: |
+          mlir-opt --version
+          mlir-translate --version
+          mlir-cpu-runner --version
+
+      - name: Install pinned torch-mlir stack
+        run: |
+          python -m pip install --upgrade pip
+
+          # numpy as a *constraint*, so no later resolve can drag in 2.x: the
+          # torch_mlir extension is compiled against the numpy 1.x C ABI and
+          # fails to import under 2.x.
+          echo "numpy==1.26.4" > /tmp/constraints.txt
+          pip install -c /tmp/constraints.txt "numpy==1.26.4"
+
+          # --no-deps on the two wheels is deliberate, for two reasons:
+          #  * torch_mlir declares `torch==2.3.0.dev20240122`, which is not on
+          #    PyPI, so a normal resolve fails outright;
+          #  * torch's own metadata requires the nvidia-cu12 stack whenever
+          #    platform_machine == "x86_64" — ~2 GB of CUDA runtime that nothing
+          #    here uses (the fast job avoids it by using the /whl/cpu index,
+          #    which is not an option for a direct-URL install).
+          # torch's real runtime imports are listed explicitly below instead.
+          pip install --no-deps "$TORCH_WHEEL" "$TORCH_MLIR_WHEEL"
+          pip install -c /tmp/constraints.txt \
+            filelock "typing-extensions>=4.8.0" networkx jinja2 fsspec packaging \
+            "sympy>=1.12" "mpmath>=1.3"
+
+          # torchvision 0.18.0 pins torch==2.3.0 exactly; a normal install would
+          # replace the dev snapshot and break torch_mlir's ABI. --no-deps keeps
+          # the pin, and the pair is verified working (the benchmark workloads
+          # import torchvision models).
+          pip install --no-deps "torchvision==0.18.0"
+
+          # llvmlite is the JIT engine for the lowered LLVM IR. 0.43 and
+          # earlier bundle LLVM 14, whose IR parser predates opaque pointers and
+          # rejects what mlir-translate 19 emits ("declare void @free(ptr)"), so
+          # the JIT tests fail at parse time instead of running. 0.44 is the
+          # floor that works; the project declares >=0.48 and 0.49.0 is verified
+          # end to end here (LLVM 22 bundled, reads MLIR 19's output fine), so
+          # take whatever the project metadata resolves to rather than pinning a
+          # second, contradictory version.
+          pip install -c /tmp/constraints.txt "llvmlite>=0.48"
+
+          # --no-deps again: the project metadata says torch>=2.0 / numpy>=1.26,
+          # and PEP 440 excludes pre-releases from those ranges, so pip would
+          # decide the installed dev snapshot does not satisfy `torch>=2.0` and
+          # "upgrade" it to a stable wheel. The [dev] extra is listed by hand.
+          pip install --no-deps -e .
+          pip install -c /tmp/constraints.txt \
+            "pytest>=8.0" "pytest-cov>=5.0" "coverage>=7.0" \
+            "pillow>=10.0" "scipy>=1.14,<1.15"
+
+      # Fails loudly if any of the pins above silently resolved to something
+      # else — the whole point of the job is that these four line up.
+      - name: Verify the pinned stack imports
+        run: |
+          python - <<'PY'
+          import numpy, torch, torch_mlir, torchvision, llvmlite
+          from torch_mlir.ir import Context, Module  # the IR bindings DAGParser needs
+          print("numpy      ", numpy.__version__)
+          print("torch      ", torch.__version__)
+          print("torch_mlir ", getattr(torch_mlir, "__version__", "(unversioned)"))
+          print("torchvision", torchvision.__version__)
+          print("llvmlite   ", llvmlite.__version__)
+          assert numpy.__version__.startswith("1.26"), numpy.__version__
+          assert torch.__version__.startswith("2.3.0.dev20240122"), torch.__version__
+          # Guard the floor, not an exact version: what matters is that the
+          # bundled LLVM can parse opaque pointers, which is true from 0.44 on.
+          assert tuple(int(p) for p in llvmlite.__version__.split(".")[:2]) >= (0, 44), (
+              llvmlite.__version__
+          )
+          PY
+
+      - name: Byte-compile sources
+        run: python -m compileall src
+
+      - name: Run full test suite
+        # Floor 70, measured 73% (4270 statements, 1153 missed) with the whole
+        # stack present and 321 tests passing — versus 55/58% for the fast job,
+        # where the torch_mlir tests skip. The 4-point gap absorbs the tests
+        # that self-skip on data rather than toolchain (the nuImages sample
+        # fixtures are not in the repo).
+        #
+        # Do not lower this to make a red build green: a drop here means the
+        # gated tests stopped running, which is exactly what the floor is for.
+        run: >
+          pytest -m "not hardware" -v
+          --cov=edgeslide --cov=benchmarks.metrics
+          --cov-report=term --cov-fail-under=70
+
+      # Same second gate as the fast job, over this job's (much larger)
+      # coverage data. Kept in both so neither job's floor can rot alone.
+      - name: Coverage floor for the results estimator
+        run: python -m coverage report --include="*/benchmarks/metrics.py" --fail-under=75
+
+      # No mypy here. The type check is pinned to python_version = "3.12" and
+      # numpy 2.x stubs (pyproject [tool.mypy]); running it against numpy 1.26's
+      # stubs would report a different set of errors than the `test` job, which
+      # is the one that gates typing.
+
+  lint:
+    name: lint (ruff)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      # Rule selection is pinned in pyproject [tool.ruff]; this just runs it.
+      - name: Ruff check
+        run: ruff check src tests benchmarks scripts
+
+  no-toolchain:
+    # Guards the skip paths: without torch, torch-mlir, or the MLIR binaries the
+    # suite must still collect and pass. A module-level `import torch` would
+    # abort collection here, which is how that regression is caught.
+    name: pure-python (no toolchain)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install test dependencies only
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      - name: Byte-compile sources
+        run: python -m compileall src
+
+      - name: Run pure-Python tests
+        run: pytest -m "not hardware and not mlir" -v

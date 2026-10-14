@@ -1,0 +1,437 @@
+\documentclass[11pt,a4paper]{article}
+
+% ============================================================================
+% Gói ngôn ngữ & font tiếng Việt
+% ============================================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage[vietnamese]{babel}
+
+% ============================================================================
+% Thiết lập lề trang & khoảng cách
+% ============================================================================
+\usepackage[a4paper,margin=2cm,top=2.8cm,bottom=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{caption}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    urlcolor=blue!70!black,
+    pdftitle={EdgeSlide - Tinh tay (Ban chinh sua)}
+}
+
+% Định nghĩa màu nhấn
+\definecolor{highlightred}{RGB}{180, 20, 20}
+\definecolor{highlightgreen}{RGB}{20, 120, 40}
+\definecolor{highlightblue}{RGB}{0, 70, 160}
+
+% Thiết lập Header & Footer giống file gốc
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{%
+  \begin{tabular}{@{}l@{}}
+    \textbf{Trường Đại học Bách Khoa Tp. Hồ Chí Minh} \\
+    \textbf{Khoa Khoa học và Kỹ thuật Máy tính}
+  \end{tabular}%
+}
+\rhead{}
+\rfoot{\small Trang \thepage/\pageref{LastPage}}
+\renewcommand{\headrulewidth}{0.5pt}
+\setlength{\headheight}{32pt}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\renewcommand{\arraystretch}{1.2}
+
+\begin{document}
+
+% ============================================================================
+% PHẦN 1: CẤU TRÚC DAG
+% ============================================================================
+\section{Cấu trúc DAG}
+\begin{center}
+\IfFileExists{DAG.jpg}{\includegraphics[width=0.7\textwidth]{DAG.jpg}}{\includegraphics[width=0.7\textwidth]{graph.png}}
+\end{center}
+\textbf{Input:} \texttt{x.1} --- shape $(1, 64, 56, 56)$
+
+Tất cả Conv đều là $\text{stride}=1$, $\text{dilation}=1$, $\text{kernel}=3$ (riêng Conv cuối là $1\times 1$).
+
+\newpage
+
+% ============================================================================
+% PHẦN 2: STAGE 1 - DAG CONSTRUCTION
+% ============================================================================
+\section{Stage 1: DAG Construction}
+
+\subsection{Định danh các nodes}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{cllll}
+\toprule
+\textbf{Node ID} & \textbf{Op type} & \textbf{Input tensors} & \textbf{Output tensor} & \textbf{Params} \\
+\midrule
+0  & \texttt{x.1} (input placeholder)               & ---            & $(1, 64, 56, 56)$  & --- \\
+1  & \texttt{linalg.conv\_2d\_nchw\_fchw} (Branch A, L1) & \texttt{x.1}, \texttt{W\_A1} & $(1, 64, 56, 56)$  & $\text{stride}=1, \text{dil}=1$ \\
+2  & \texttt{linalg.conv\_2d\_nchw\_fchw} (Branch B, L1) & \texttt{x.1}, \texttt{W\_B1} & $(1, 64, 56, 56)$  & $\text{stride}=1, \text{dil}=1$ \\
+3  & \texttt{linalg.conv\_2d\_nchw\_fchw} (Branch C, L1) & \texttt{x.1}, \texttt{W\_C1} & $(1, 64, 56, 56)$  & $\text{stride}=1, \text{dil}=1$ \\
+4  & \texttt{linalg.elemwise\_unary} / ReLU (Branch A)   & \texttt{T1}          & $(1, 64, 56, 56)$  & $\text{op}=\text{relu}$ \\
+5  & \texttt{linalg.elemwise\_unary} / ReLU (Branch B)   & \texttt{T2}          & $(1, 64, 56, 56)$  & $\text{op}=\text{relu}$ \\
+6  & \texttt{linalg.elemwise\_unary} / ReLU (Branch C)   & \texttt{T3}          & $(1, 64, 56, 56)$  & $\text{op}=\text{relu}$ \\
+7  & \texttt{linalg.conv\_2d\_nchw\_fchw} (Branch A, L2) & \texttt{T4}, \texttt{W\_A2}  & $(1, 64, 56, 56)$  & $\text{stride}=1, \text{dil}=1$ \\
+8  & \texttt{linalg.conv\_2d\_nchw\_fchw} (Branch B, L2) & \texttt{T5}, \texttt{W\_B2}  & $(1, 64, 56, 56)$  & $\text{stride}=1, \text{dil}=1$ \\
+9  & \texttt{linalg.conv\_2d\_nchw\_fchw} (Branch C, L2) & \texttt{T6}, \texttt{W\_C2}  & $(1, 64, 56, 56)$  & $\text{stride}=1, \text{dil}=1$ \\
+10 & \texttt{linalg.elemwise\_unary} / ReLU (Branch A)   & \texttt{T7}          & $(1, 64, 56, 56)$  & $\text{op}=\text{relu}$ \\
+11 & \texttt{linalg.elemwise\_unary} / ReLU (Branch B)   & \texttt{T8}          & $(1, 64, 56, 56)$  & $\text{op}=\text{relu}$ \\
+12 & \texttt{linalg.elemwise\_unary} / ReLU (Branch C)   & \texttt{T9}          & $(1, 64, 56, 56)$  & $\text{op}=\text{relu}$ \\
+13 & \texttt{tensor.concat} / cat                        & \texttt{T10, T11, T12} & $(1, 192, 56, 56)$ & $\text{dim}=1$ \\
+14 & \texttt{linalg.conv\_2d\_nchw\_fchw} ($1\times 1$ conv) & \texttt{T13}, \texttt{W\_fin} & $(1, 64, 56, 56)$  & $\text{stride}=1, \text{dil}=1$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Topological Order (dùng Kahn's + min-heap)}
+
+Topological order: $[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]$
+
+% ============================================================================
+% PHẦN 3: STAGE 2 - LIVENESS ANALYSIS
+% ============================================================================
+\section{Stage 2: Liveness Analysis}
+
+\subsection{Tính kích thước từng tensor}
+
+Ta có $\text{Float32} = 4\text{ bytes/element}$
+
+\textbf{Size of Tensor:}
+\begin{itemize}
+    \item $T_{\text{input}}$ (\texttt{x.1}): $1 \times 64 \times 56 \times 56 \times 4 = 802,816\text{ bytes} \sim 784\text{ KB}$
+    \item $T_1 = T_2 = T_3$: $1 \times 64 \times 56 \times 56 \times 4 = 802,816\text{ bytes} \sim 784\text{ KB}$
+    \item $T_4 = T_5 = T_6$: $1 \times 64 \times 56 \times 56 \times 4 = 802,816\text{ bytes}$
+    \item $T_7 = T_8 = T_9$: $1 \times 64 \times 56 \times 56 \times 4 = 802,816\text{ bytes}$
+    \item $T_{10} = T_{11} = T_{12}$: $1 \times 64 \times 56 \times 56 \times 4 = 802,816\text{ bytes}$
+    \item $T_{13}$ (\texttt{cat} output): $1 \times 192 \times 56 \times 56 \times 4 = 2,408,448\text{ bytes} \sim 2.3\text{ MB}$
+    \item $T_{14}$ (final output): $1 \times 64 \times 56 \times 56 \times 4 = 802,816\text{ bytes}$
+\end{itemize}
+
+\textbf{Weights:}
+\begin{itemize}
+    \item $W_{Ax} / W_{Bx} / W_{Cx}$ (L1, L2): $64 \times 64 \times 3 \times 3 \times 4 = 147,456\text{ bytes}$
+    \item $W_{\text{fin}}$ ($1\times 1$ conv): $64 \times 192 \times 1 \times 1 \times 4 = 49,152\text{ bytes}$
+\end{itemize}
+
+\newpage
+
+\subsection{Tính $p(t)$ và $\ell(t)$ cho mỗi tensor trung gian}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llll}
+\toprule
+\textbf{Tensor} & \textbf{Producer ($p$)} & \textbf{Consumers} & $\boldsymbol{\ell(t) = \max(\text{consumers})}$ \\
+\midrule
+$T_{\text{input}}$ & 0  & $\{1, 2, 3\}$ & 3 \\
+$T_1$              & 1  & $\{4\}$       & 4 \\
+$T_2$              & 2  & $\{5\}$       & 5 \\
+$T_3$              & 3  & $\{6\}$       & 6 \\
+$T_4$              & 4  & $\{7\}$       & 7 \\
+$T_5$              & 5  & $\{8\}$       & 8 \\
+$T_6$              & 6  & $\{9\}$       & 9 \\
+$T_7$              & 7  & $\{10\}$      & 10 \\
+$T_8$              & 8  & $\{11\}$      & 11 \\
+$T_9$              & 9  & $\{12\}$      & 12 \\
+$T_{10}$             & 10 & $\{13\}$      & 13 \\
+$T_{11}$             & 11 & $\{13\}$      & 13 \\
+$T_{12}$             & 12 & $\{13\}$      & 13 \\
+$T_{13}$             & 13 & $\{14\}$      & 14 \\
+$T_{14}$             & 14 & $\{\}$ (sink) & 14 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Bảng Live Tensors tại mỗi program point (Bản chuẩn xác theo code EdgeSlice)}
+
+Tensor $t$ alive tại point $i$ khi: $p(t) \le i \le \ell(t)$
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{clc}
+\toprule
+\textbf{Point $\boldsymbol{i}$} & \textbf{Live Tensors (Đang hoạt động trong bộ nhớ)} & \textbf{Tổng bytes} \\
+\midrule
+0  & $T_{\text{input}}$                                                                 & 802,816 \\
+1  & $T_{\text{input}}, T_1$                                                             & 1,605,632 \\
+2  & $T_{\text{input}}, T_1, T_2$                                                         & 2,408,448 \\
+3  & $T_{\text{input}}, T_1, T_2, T_3$                                                     & 3,211,264 \\
+4  & $T_1, T_2, T_3, T_4$ \quad \textcolor{gray}{\small($T_{\text{input}}\to\text{dead}$)} & 3,211,264 \\
+5  & $T_2, T_3, T_4, T_5$ \quad \textcolor{gray}{\small($T_1\to\text{dead}$)}             & 3,211,264 \\
+6  & $T_3, T_4, T_5, T_6$ \quad \textcolor{gray}{\small($T_2\to\text{dead}$)}             & 3,211,264 \\
+7  & $T_4, T_5, T_6, T_7$ \quad \textcolor{gray}{\small($T_3\to\text{dead}$)}             & \textbf{3,211,264} \\
+8  & $T_5, T_6, T_7, T_8$ \quad \textcolor{gray}{\small($T_4\to\text{dead}$)}             & \textbf{3,211,264} \\
+9  & $T_6, T_7, T_8, T_9$ \quad \textcolor{gray}{\small($T_5\to\text{dead}$)}             & \textbf{3,211,264} \\
+10 & $T_7, T_8, T_9, T_{10}$ \quad \textcolor{gray}{\small($T_6\to\text{dead}$)}            & \textbf{3,211,264} \\
+11 & $T_8, T_9, T_{10}, T_{11}$ \quad \textcolor{gray}{\small($T_7\to\text{dead}$)}           & \textbf{3,211,264} \\
+12 & $T_9, T_{10}, T_{11}, T_{12}$ \quad \textcolor{gray}{\small($T_8\to\text{dead}$)}          & \textbf{3,211,264} \\
+13 & $T_{10}, T_{11}, T_{12}, T_{13}$ \quad \textcolor{gray}{\small($T_9\to\text{dead}$)}     & \textbf{4,816,896} \textbf{\textcolor{highlightred}{(Global Peak)}} \\
+14 & $T_{13}, T_{14}$ \quad \textcolor{gray}{\small($T_{10}, T_{11}, T_{12}\to\text{dead}$)}    & \textbf{3,211,264} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{\textcolor{highlightblue}{* Chú thích những điểm sửa so bản trước:}}
+\begin{enumerate}
+    \item \textbf{Tại Point 4, 5, 6:} $T_{\text{input}}$ đã hết consumer sau Node 3 ($\ell(T_{\text{input}}) = 3$), nên tại $i=4$, $T_{\text{input}}$ đã giải phóng. Ngược lại, $T_1$ đang được Node 4 đọc nên $T_1$ vẫn còn sống tại $i=4$. Live set đúng tại Point 4 là $\{T_1, T_2, T_3, T_4\}$.
+    \item \textbf{Tại Point 7 đến 12:} Node 7 đọc $T_4$ để sinh $T_7$, nên tại $i=7$, $T_4$ vẫn còn sống ($p(T_4)\le 7 \le \ell(T_4)=7$). Tổng số tensor sống là 4 ($3,211,264\text{ B}$), không phải 3 tensor ($2,408,448\text{ B}$).
+    \item \textbf{Tại Point 13 (Toán tử \texttt{cat}):} Trong suốt lúc Op 13 chạy, cả 3 input ($T_{10}, T_{11}, T_{12}$) và output $T_{13}$ đều phải nằm trên bộ nhớ: $(3 \times 802,816) + 2,408,448 = \mathbf{4,816,896\text{ bytes}} \approx \mathbf{4.59\text{ MB}}$. Đây là \textbf{Global Peak Memory}.
+    \item \textbf{Tại Point 14 (Conv $1\times 1$):} Op 14 đọc $T_{13}$ và tạo $T_{14}$, nên dung lượng là $2,408,448 + 802,816 = \mathbf{3,211,264\text{ bytes}}$ (không phải $802,816\text{ B}$).
+\end{enumerate}
+
+% ============================================================================
+% PHẦN 4: STAGE 3 - CANDIDATE SELECTION
+% ============================================================================
+\section{Stage 3: Candidate Selection}
+
+$$\text{Budget} = 512\text{ KB} \times 80\% = 409,600\text{ bytes}$$
+
+\paragraph{Conv L1 (nodes 1, 2, 3)}
+\begin{align*}
+\text{op\_type} &= \texttt{conv\_2d\_nchw\_fchw} \\
+\text{output shape} &: (1, 64, 56, 56) \\
+\text{input shape} &: (1, 64, 56, 56) \\
+\text{weight shape} &: (64, 64, 3, 3)
+\end{align*}
+Full working set:
+\begin{align*}
+\text{output} &: 1 \times 64 \times 56 \times 56 \times 4 = 802,816\text{ bytes} \\
+\text{input} &: 1 \times 64 \times 56 \times 56 \times 4 = 802,816\text{ bytes} \\
+\text{weight} &: 64 \times 64 \times 3 \times 3 \times 4 = 147,456\text{ bytes} \\
+\midrule
+\text{Total} &: 1,753,088\text{ bytes} \sim 1.67\text{ MB}
+\end{align*}
+$1,753,088 > \text{Budget} \implies$ \textbf{Cắt (Tile)}
+
+\paragraph{ReLU (nodes 4--6, 10--12)}
+$$\text{Full working set} = \text{output} + \text{input} = 2 \times 802,816 = 1,605,632\text{ bytes}$$
+$1,605,632 > \text{Budget} \implies$ \textbf{Cắt (Tile)}
+
+\paragraph{Conv L2 (nodes 7--9)}
+$$\text{Total} = 1,753,088\text{ bytes} > \text{Budget} \implies \textbf{Cắt (Tile)}$$
+
+\paragraph{Cat (node 13)}
+\texttt{tensor.concat}, không thuộc họ phép tính \texttt{linalg} được hỗ trợ cắt (\texttt{is\_tileable} loại trừ).
+$\implies$ \textbf{Không cắt}
+
+\paragraph{Conv cuối (node 14)}
+\begin{align*}
+\text{output} &: 1 \times 64 \times 56 \times 56 \times 4 = 802,816\text{ bytes} \\
+\text{input} &: 1 \times 192 \times 56 \times 56 \times 4 = 2,408,448\text{ bytes} \\
+\text{weight} &: 64 \times 192 \times 1 \times 1 \times 4 = 49,152\text{ bytes} \\
+\midrule
+\text{Total} &: 3,260,416\text{ bytes} \sim 3.11\text{ MB}
+\end{align*}
+$3,260,416 > \text{Budget} \implies$ \textbf{Cắt (Tile)}
+
+\paragraph{Danh sách candidates cuối}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{clcc}
+\toprule
+\textbf{Node} & \textbf{Op} & \textbf{Full WS (bytes)} & \textbf{Cắt?} \\
+\midrule
+$1, 2, 3$   & Conv $3\times 3$ L1 & $1,753,088$ & \checkmark \\
+$4, 5, 6$   & ReLU L1             & $1,605,632$ & \checkmark \\
+$7, 8, 9$   & Conv $3\times 3$ L2 & $1,753,088$ & \checkmark \\
+$10, 11, 12$ & ReLU L2             & $1,605,632$ & \checkmark \\
+$13$         & cat                 & N/A         & $\times$ \\
+$14$         & Conv $1\times 1$    & $3,260,416$ & \checkmark \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================================
+% PHẦN 5: STAGE 4 - DIMENSION SELECTION
+% ============================================================================
+\section{Stage 4: Dimension Selection}
+
+Theo thứ tự ưu tiên của EdgeSlice cho định dạng NCHW (dense conv, batch=1):
+$$\text{Spatial H} \succ \text{Spatial W} \succ \text{Channel}$$
+$\implies$ \textbf{Ưu tiên cắt theo chiều H (\texttt{spatial\_h}) trước cho cả Conv và ReLU.}
+
+% ============================================================================
+% PHẦN 6: STAGE 5 - TILE SIZE CALCULATION
+% ============================================================================
+\section{Stage 5: Tile Size Calculation}
+
+$$\text{Budget} = 409,600\text{ bytes}$$
+
+\subsection{Conv L1, L2}
+$\text{shape} = (1, 64, 56, 56), \text{dim} = \texttt{spatial\_h}, \text{stride}=1, \text{dilation}=1, \text{kernel}=3$
+
+\textbf{Output tile:}
+$$(1, 64, T_h, 56) = 64 \times T_h \times 56 \times 4 = 14,336 \times T_h\text{ bytes}$$
+
+Ta có công thức tính kích thước đầu vào có đệm vùng lân cận (Halo):
+\begin{align*}
+h_{\text{in}} &= (T_h - 1) \times \text{stride} + \text{dilation} \times (\text{kernel}_h - 1) + 1 \\
+&= (T_h - 1) \times 1 + 1 \times 2 + 1 \\
+&= T_h + 2 \quad (\text{Thêm 2 rows halo})
+\end{align*}
+
+\textbf{Input tile:}
+$$(1, 64, T_h + 2, 56) = 64 \times (T_h + 2) \times 56 \times 4 = 14,336 \times (T_h + 2)\text{ bytes}$$
+
+\textbf{Weight tile:}
+$$(64, 64, 3, 3) \times 4 = 147,456\text{ bytes}$$
+
+\textbf{Total footprint:}
+\begin{align*}
+F(T_h) &= 14,336 \times T_h + 14,336 \times (T_h + 2) + 147,456 \\
+&= 28,672 \times T_h + 28,672 + 147,456 \\
+&= 28,672 \times T_h + 176,128\text{ bytes}
+\end{align*}
+
+Từ đây, giải điều kiện $F(T_h) \le 409,600$:
+$$28,672 \times T_h \le 233,472 \implies T_h \le 8.143$$
+$\implies$ Chọn $T_h = 8$ là tối ưu nhất:
+$$F(8) = 28,672 \times 8 + 176,128 = 229,376 + 176,128 = 405,504\text{ bytes} \le \text{Budget}$$
+
+\textbf{Với $T_h = 8$:}
+\begin{itemize}
+    \item Mỗi tile $= 8\text{ rows output}$, cần $10\text{ rows input}$ ($8 + 2\text{ halo}$).
+    \item Số tiles $= \lceil 56/8 \rceil = \mathbf{7\text{ tiles}}$.
+\end{itemize}
+
+\subsection{Tất cả ReLU}
+Tương tự (không có halo và không có weights):
+$$F(T_h) = 28,672 \times T_h$$
+Giải $F(T_h) \le 409,600 \implies T_h \le 14.28 \implies \text{best: } T_h = 14 \xrightarrow{\text{align to power-of-2}} \mathbf{T_h = 8}$
+\begin{itemize}
+    \item Số tiles $= \lceil 56/8 \rceil = \mathbf{7\text{ tiles}}$.
+\end{itemize}
+
+\newpage
+
+\subsection{Conv cuối (Node 14, Conv $1\times 1$)}
+Tương tự ($1\times 1$ conv không có halo):
+\begin{align*}
+\text{Input tile} &: (1, 192, T_h, 56) = 192 \times T_h \times 56 \times 4 = 43,008 \times T_h\text{ bytes} \\
+\text{Output tile} &: (1, 64, T_h, 56) = 64 \times T_h \times 56 \times 4 = 14,336 \times T_h\text{ bytes} \\
+\text{Weight tile} &: (64, 192, 1, 1) \times 4 = 49,152\text{ bytes} \\
+\midrule
+F(T_h) &= (43,008 + 14,336) \times T_h + 49,152 = 57,344 \times T_h + 49,152\text{ bytes}
+\end{align*}
+Giải $57,344 \times T_h + 49,152 \le 409,600 \implies 57,344 \times T_h \le 360,448 \implies T_h \le 6.285$.
+$$\text{best: } T_h = 6 \xrightarrow{\text{align to power-of-2}} \mathbf{T_h = 4}$$
+Tile size cho Conv cuối: $\mathbf{T_h = 4}$ \\
+Số tiles $= \lceil 56/4 \rceil = \mathbf{14\text{ tiles}}$
+
+% ============================================================================
+% PHẦN 7: STAGE 6 - SCHEDULE SEARCH
+% ============================================================================
+\section{Stage 6: Schedule Search}
+
+Vì chỉ có 1D cascade và 1 dimension hợp lệ cho mỗi op:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{clccc}
+\toprule
+\textbf{Node} & \textbf{Op} & \textbf{Slice dim} & \textbf{Tile size} & \textbf{Tiles} \\
+\midrule
+$1, 2, 3$   & Conv $3\times 3$ L1 & H & 8 & 7 \\
+$4, 5, 6$   & ReLU L1             & H & 8 & 7 \\
+$7, 8, 9$   & Conv $3\times 3$ L2 & H & 8 & 7 \\
+$10, 11, 12$ & ReLU L2             & H & 8 & 7 \\
+$14$         & Conv $1\times 1$    & H & 4 & 14 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================================
+% PHẦN 8: STAGE 7 - FUSION PLANNING
+% ============================================================================
+\section{Stage 7: Fusion Planning}
+
+\subsection{Fusion chains}
+Final anchors:
+\begin{itemize}
+    \item $\{1, 2, 3\}$ (Conv L1 mỗi nhánh)
+    \item $\{7, 8, 9\}$ (Conv L2 mỗi nhánh, ReLU L1 sẽ fuse vào đây)
+    \item $\{10, 11, 12\}$ (ReLU L2)
+    \item $\{14\}$ (Conv $1\times 1$)
+\end{itemize}
+
+\subsection{Re-fit tile sau fusion}
+\textbf{Group members:}
+Node 7 (Conv L2) + Node 4 (ReLU\_A1)
+
+\textbf{Group total footprint:}
+\begin{align*}
+F_{\text{group}}(T_h) &= F_{\text{Conv L2}}(T_h) + F_{\text{ReLU}}(T_h) \\
+&= (28,672 \times T_h + 176,128) + 28,672 \times T_h \\
+&= 57,344 \times T_h + 176,128\text{ bytes}
+\end{align*}
+Giải $57,344 \times T_h + 176,128 \le 409,600 \implies 57,344 \times T_h \le 233,472 \implies T_h \le 4.071$.
+$$\text{best: } T_h = 4 \xrightarrow{\text{align}} \mathbf{T_h = 4}$$
+
+\textbf{Tile size sau fusion:}
+\begin{table}[H]
+\centering
+\begin{tabular}{clccc}
+\toprule
+\textbf{Node} & \textbf{Op} & \textbf{Slice dim} & \textbf{Tile size} & \textbf{Tiles} \\
+\midrule
+$1, 2, 3$   & Conv $3\times 3$ L1       & H & 8 & 7 \\
+$7, 8, 9$   & Conv $3\times 3$ L2 fused & H & 4 & 14 \\
+$10, 11, 12$ & ReLU L2                   & H & 8 & 7 \\
+$14$         & Conv $1\times 1$          & H & 4 & 14 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================================
+% PHẦN 9: STAGE 8 - MLIR TRANSFORM IR GENERATION
+% ============================================================================
+\section{Stage 8: MLIR Transform IR Generation}
+
+\textit{Phần này được sinh tự động bởi compiler EdgeSlice (\texttt{SlicedRewrite.generate\_transform\_ir()}). Không khuyến khích tính tay do phải xử lý các SSA handles, \texttt{transform.structured.match}, \texttt{tile\_using\_forall} và \texttt{fuse\_into\_containing\_op}.}
+
+% ============================================================================
+% PHẦN 10: MEMORY TIERS (BẢN ĐÃ ĐÍNH CHÍNH)
+% ============================================================================
+\section{Memory tiers}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Op} & \textbf{Working set tile (Memory tier)} \\
+\midrule
+Conv L1 (tile $H=8$)       & $405,504\text{ B} \approx 396\text{ KB}$ \\
+Conv L2 fused (tile $H=4$) & $405,504\text{ B} \approx 396\text{ KB}$ \\
+ReLU L2 (tile $H=8$)       & $14,336 \times 8 \times 2 = 229,376\text{ B} \approx 224\text{ KB}$ \\
+Conv $1\times 1$ (tile $H=4$) & $\mathbf{278,528\text{ B} \approx 272\text{ KB}}$ \textsuperscript{(*)} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textsuperscript{(*)} \textbf{\textcolor{highlightblue}{Ghi chú đính chính:}} \\
+Trong bản cũ ghi $393,216\text{ B} \approx 384\text{ KB}$ --- đó là giá trị footprint chưa align của $T_h = 6$ ($57,344 \times 6 + 49,152 = 393,216\text{ B}$). Khi tile size đã được chọn là $T_h = 4$, working set chính xác của Conv $1\times 1$ là:
+$$F(4) = 57,344 \times 4 + 49,152 = \mathbf{278,528\text{ bytes}} \approx \mathbf{272\text{ KB}}$$
+
+\end{document}

@@ -1,0 +1,7 @@
+build/*
+test/res*
+test/out*
+test/log*
+# Out-of-tree build against a distro LLVM 19 (build_llvm19.sh); 94 MB and
+# fully regeneratable from source.
+build-llvm19/

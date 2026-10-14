@@ -1,0 +1,124 @@
+# EdgeSlide — project metadata, pinned dependencies, and test configuration.
+#
+# **One** environment holds the whole stack: CPython 3.11 with torch-mlir,
+# torchvision, and the MLIR CLI tools. The earlier two-environment split
+# (a "default" env on NumPy 2.x plus a separate torch-mlir env) turned out to be
+# avoidable — torchvision installed with --no-deps coexists with torch-mlir's
+# pinned torch dev snapshot. docs/DEPENDENCIES.md has the verified recipe.
+#
+# 3.11 is not negotiable: torch-mlir publishes cp311 wheels only, linked against
+# the NumPy 1.x C ABI and a specific torch dev snapshot.
+#
+# This file cannot express that environment on its own. Two of its requirements
+# are outside what PEP 621 metadata can state — wheels that exist only as GitHub
+# release assets, and a --no-deps install for torchvision — so
+# `pip install -e ".[mlir]"` does not reproduce it. Follow
+# docs/DEPENDENCIES.md § "Building it from scratch" instead.
+#
+# The LLVM/MLIR command-line tools are not Python packages; install them from
+# your distribution (Ubuntu: llvm-19-tools, mlir-19-tools) and point
+# $MLIR_OPT / $MLIR_TRANSLATE at them if they are not on PATH. Verified against
+# LLVM/MLIR 19.1.1 and 19.1.7.
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "edgeslide"
+version = "0.1.0"
+description = "Overlap-slicing MLIR compiler passes for cache-resident CNN inference"
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "numpy>=1.26",
+    "torch>=2.0",
+    "torchvision>=0.15",
+    "pillow>=10.0",
+    "scipy>=1.11",
+    "llvmlite>=0.48",
+    "sympy>=1.12",
+    "mpmath>=1.3",
+]
+
+[project.optional-dependencies]
+# Test-only extras. Everything under `pytest -m "not hardware and not mlir"`
+# runs with just these plus the base dependencies.
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    # Declared explicitly rather than leaned on transitively via pytest-cov:
+    # CI invokes `coverage report` directly for the estimator floor.
+    "coverage>=7.0",
+    "mypy>=1.10",
+]
+
+# torch-mlir path. CPython 3.11 only; see the header note. Exact pins because
+# the wheels are snapshot builds and the torch/numpy versions are not
+# independently selectable.
+#
+# Incomplete on purpose, and it cannot be completed here: neither
+# torch==2.3.0.dev20240122 nor torch-mlir==20240127.1096 is on PyPI (both are
+# GitHub release assets, so they need a URL), and torchvision has to be
+# installed with --no-deps or it replaces the torch snapshot that torch-mlir's
+# extension is ABI-locked to. Declared anyway so the pinned versions are
+# recorded in one machine-readable place; use docs/DEPENDENCIES.md to install.
+mlir = [
+    "numpy==1.26.4",
+    "torch==2.3.0.dev20240122",
+    "torch-mlir==20240127.1096",
+    # 0.43 and earlier bundle LLVM 14, whose IR parser predates opaque pointers
+    # and rejects what mlir-translate 19 emits.
+    "llvmlite>=0.48",
+    "torchvision==0.18.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+# Enforced baseline (tech-debt remediation, 2026-08). Pinned here so local
+# runs and CI agree regardless of user-level ruff configuration.
+target-version = "py310"
+line-length = 100
+src = ["src", "tests", "benchmarks", "scripts"]
+
+[tool.ruff.lint]
+# E/F: pyflakes + core pycodestyle errors. I: deterministic import order.
+# Style-modernization families (UP, SIM, B, ...) are deliberately not enabled
+# yet — enable per-family once the codebase is migrated.
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# pytest.importorskip / sys.path bootstrapping legitimately precedes imports
+# in test and script entry points.
+"tests/*" = ["E402"]
+"benchmarks/*" = ["E402"]
+"scripts/*" = ["E402"]
+
+[tool.mypy]
+# Enforced on src/edgeslide (tech-debt remediation, 2026-08); the whole
+# package is clean at this level. Third-party deps without stubs (torch_mlir,
+# nuscenes, llvmlite) are ignored at the import boundary only.
+files = ["src/edgeslide"]
+# 3.12, not the package floor of 3.10: numpy 2.x ships PEP 695 `type`
+# statements in its stubs, which mypy only accepts when targeting >= 3.12.
+python_version = "3.12"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+# Marker registration lives here rather than in conftest.py so `pytest
+# --markers` and CI selection agree on one list.
+markers = [
+    "cpu: pure-Python unit test; no external toolchain or accelerator required",
+    "integration: end-to-end pipeline test (may require torch_mlir)",
+    "mlir: requires the MLIR command-line tools (mlir-opt and friends)",
+    "hardware: requires a full native toolchain (clang/mlir-translate) or specific hardware",
+    "slow: longer running benchmark-style test",
+]

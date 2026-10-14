@@ -1,0 +1,183 @@
+# ---------------------------------------------------------------------------
+# Python bytecode and build products
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+.eggs/
+*.whl
+
+# setuptools/pip build trees. build/lib is a *copy* of src/ and must never be
+# treated as source: committing it creates a second, silently diverging tree.
+build/
+dist/
+develop-eggs/
+sdist/
+wheels/
+.installed.cfg
+MANIFEST
+
+# ---------------------------------------------------------------------------
+# Virtual environments
+# ---------------------------------------------------------------------------
+venv/
+venv_local/
+.venv/
+.venv-mlir/
+.venv-mlir-yolo/
+env/
+ENV/
+env.bak/
+venv.bak/
+pyvenv.cfg
+
+# ---------------------------------------------------------------------------
+# Test / coverage caches
+# ---------------------------------------------------------------------------
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# ---------------------------------------------------------------------------
+# Generated MLIR / LLVM artifacts
+#
+# Every one of these is reproducible from src/ via the pipeline. They are also
+# the files most likely to be mistaken for source after a bad cleanup, so they
+# stay ignored rather than tracked.
+# ---------------------------------------------------------------------------
+ir/**/*.mlir
+ir/**/*.dot
+ir/**/graph.dot
+ir/**/*.ll
+ir/**/*.so
+*.ll
+sliced_payload*.mlir
+payload.mlir
+transform.mlir
+*_merged.mlir
+*_interpreted.mlir
+libedgeslide_runner_utils.so
+
+# ---------------------------------------------------------------------------
+# Benchmark outputs (regeneratable)
+# ---------------------------------------------------------------------------
+benchmarks/results/*.json
+benchmarks/results/*.png
+benchmarks/results/*/
+# The archive is curated, not regeneratable: it keeps historical result files
+# plus the README explaining why they must not be cited as current evidence.
+!benchmarks/results/archive/
+benchmarks/plots/*.png
+benchmarks/plots/*.json
+benchmarks/plots/*.svg
+benchmarks/plots/*_summary.md
+benchmarks/plots/*/
+benchmarks/*.json
+cachegrind.out.*
+
+# Root-level generated plots
+graph.png
+conv2d_graph.png
+
+# LaTeX build byproducts (presentation/*.tex is the source; the PDF stays tracked)
+presentation/*.aux
+presentation/*.fdb_latexmk
+presentation/*.fls
+presentation/*.log
+presentation/*.nav
+presentation/*.out
+presentation/*.snm
+presentation/*.synctex*
+presentation/*.toc
+presentation/*.vrb
+
+# ---------------------------------------------------------------------------
+# Datasets and large models (never committed)
+# ---------------------------------------------------------------------------
+data/
+v1.0*/
+*.tgz
+*.tar.gz
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# ---------------------------------------------------------------------------
+# Editors / OS
+# ---------------------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.ipynb_checkpoints/
+
+# ---------------------------------------------------------------------------
+# Local / personal config
+# ---------------------------------------------------------------------------
+.claude/settings.local.json
+.env
+.env.local
+*.local
+*.local.*
+output/
+tmp/
+temp/
+*.log
+*.cache
+
+# Recovery salvage from the 2026-08-29 repo loss; not source.
+.git.broken_salvage/
+
+# LaTeX build products
+presentation/*.aux
+presentation/*.log
+presentation/*.fdb_latexmk
+presentation/*.fls
+presentation/*.out
+presentation/*.toc
+presentation/*.nav
+presentation/*.snm
+presentation/*.vrb
+presentation/*.synctex*
+presentation/*.bbl
+presentation/*.blg
+presentation/*.pdf
+
+# Keep source assets
+!presentation/*.tex
+!presentation/img/
+!presentation/img/*.png
+!presentation/img/*.jpg
+!**/.gitkeep
+
+# ---------------------------------------------------------------------------
+# Documentation
+# ---------------------------------------------------------------------------
+docs/
+documents/
+
+.agents/
+.claude/
+
+.agents/
+.claude/

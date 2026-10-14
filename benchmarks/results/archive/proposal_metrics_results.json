@@ -1,0 +1,50 @@
+{
+  "metadata": {
+    "benchmark_type": "proposal_metrics",
+    "description": "EdgeSlide benchmark following proposal section 5.2 metrics",
+    "dataset": "6-camera surround view (autonomous driving)",
+    "input_shape": [
+      1,
+      6,
+      3,
+      224,
+      224
+    ],
+    "l1_cache_kb": 512,
+    "device": "unknown"
+  },
+  "baseline": {
+    "name": "Baseline 1: No Slicing",
+    "peak_memory_mb": 34.769351959228516,
+    "avg_time_ms": 7.948447500239127,
+    "memory_traffic_gb": 0.04571676254272461
+  },
+  "edgeslide": {
+    "name": "EdgeSlide",
+    "peak_memory_mb": 34.769351959228516,
+    "avg_time_ms": 8.220254160114564,
+    "memory_traffic_gb": 0.04571676254272461,
+    "num_layers_wrapped": 5,
+    "compile_time_s": 0.00010800361633300781
+  },
+  "metrics": {
+    "peak_memory_reduction_pct": 0.0,
+    "runtime_speedup_pct": -3.419619490060914,
+    "memory_traffic_gb": 0.04571676254272461,
+    "compile_time_overhead_s": 0.00010800361633300781,
+    "accuracy_drop_pct": 17.10665066489603,
+    "device": "unknown",
+    "batch_size": 1,
+    "input_resolution": [
+      6,
+      3,
+      224,
+      224
+    ]
+  },
+  "sota_comparison": {
+    "sconv_speedup_range": "9-42%",
+    "tso_speedup": "21.7%",
+    "edgeslide_speedup": "-3.4%"
+  }
+}
